@@ -1,3 +1,7 @@
+set nocompatible
+
+let g:polyglot_disabled = ['sensible']
+
 set number
 set relativenumber
 autocmd InsertEnter * :set norelativenumber
@@ -14,7 +18,6 @@ set autoread
 set smartindent
 set autoindent
 set smarttab
-	
 
 set hidden
 
@@ -32,9 +35,19 @@ set shiftwidth=4
 syntax on
 set hlsearch
 
+set updatetime=500
+set signcolumn=auto
+
+highlight SignColumn guibg=NONE ctermbg=NONE
+
 nnoremap <C-n> :NERDTree<CR>
 nnoremap <C-t> :NERDTreeToggle<CR>
 nnoremap <C-f> :NERDTreeFind<CR>
 
 let NERDTreeCustomOpenArgs={'file': {'where': 't'}}
+let NERDTreeShowHidden=1
+
+highlight GitGutterAdd guifg=#009900 ctermfg=2 guibg=NONE ctermbg=NONE
+highlight GitGutterChange guifg=#bbbb00 ctermfg=3 guibg=NONE ctermbg=NONE
+highlight GitGutterDelete guifg=#ff2222 ctermfg=1 guibg=NONE ctermbg=NONE
 
