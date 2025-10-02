@@ -25,7 +25,7 @@ set hidden
 " autocmd FocusGained,BufEnter * :checktime
 
 set list
-set listchars=trail:·,tab:\|\ ,nbsp:␣,extends:›,precedes:‹
+set listchars=trail:·,tab:\→\ ,nbsp:␣,extends:›,precedes:‹
 highlight SpecialKey ctermfg=248 ctermbg=NONE
 
 set tabstop=4
