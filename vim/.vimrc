@@ -21,6 +21,8 @@ set smarttab
 
 set hidden
 
+set showcmd
+
 " au BufWritePost *.c,*.cpp,*.h,*.py silent! !ctags -R &
 " autocmd FocusGained,BufEnter * :checktime
 
