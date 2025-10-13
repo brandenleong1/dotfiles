@@ -9,4 +9,6 @@ Clone pack repos in `~/.vim/pack/*/start` (replace `*` with anything, perhaps `v
 * NERDTree - [preservim/nerdtree](https://github.com/preservim/nerdtree)
 * vim-gitgutter - [airblade/vim-gitgutter](https://github.com/airblade/vim-gitgutter)
 * vim-polyglot - [sheerun/vim-polyglot](https://github.com/sheerun/vim-polyglot)
+* vim-airline - [vim-airline/vim-airline](https://github.com/vim-airline/vim-airline)
+* vim-airline-themese - [vim-airline/vim-airline-themes](https://github.com/vim-airline/vim-airline-themes)
 

@@ -53,3 +53,8 @@ highlight GitGutterAdd guifg=#009900 ctermfg=2 guibg=NONE ctermbg=NONE
 highlight GitGutterChange guifg=#bbbb00 ctermfg=3 guibg=NONE ctermbg=NONE
 highlight GitGutterDelete guifg=#ff2222 ctermfg=1 guibg=NONE ctermbg=NONE
 
+let g:airline_theme = 'papercolor'
+let g:airline#extensions#tabline#enabled = 1
+let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
+let g:airline_section_z = '%p%% ☰ %l/%L ln : %c'
+
