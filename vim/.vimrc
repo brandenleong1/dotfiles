@@ -36,6 +36,7 @@ set shiftwidth=4
 
 syntax on
 set hlsearch
+set incsearch
 
 set updatetime=500
 set signcolumn=auto
