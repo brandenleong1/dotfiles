@@ -1,0 +1,54 @@
+{
+    "schemes":
+    [
+        {
+            "background": "#FDF6E3",
+            "black": "#292A38",
+            "blue": "#1E66F5",
+            "brightBlack": "#787B85",
+            "brightBlue": "#1E66F5",
+            "brightCyan": "#179299",
+            "brightGreen": "#40A02B",
+            "brightPurple": "#EA76CB",
+            "brightRed": "#D20F39",
+            "brightWhite": "#CFD3E0",
+            "brightYellow": "#DF8E1D",
+            "cursorColor": "#292A38",
+            "cyan": "#179299",
+            "foreground": "#292A38",
+            "green": "#40A02B",
+            "name": "Catppuccin Latte",
+            "purple": "#EA76CB",
+            "red": "#D20F39",
+            "selectionBackground": "#ACB0BE",
+            "white": "#ACB0BE",
+            "yellow": "#DF8E1D"
+        }
+    ],
+    "themes":
+    [
+        {
+            "name": "Catppuccin Latte",
+            "tab":
+            {
+                "background": "#EFF1F5FF",
+                "iconStyle": "default",
+                "showCloseButton": "always",
+                "unfocusedBackground": null
+            },
+            "tabRow":
+            {
+                "background": "#E6E9EFFF",
+                "unfocusedBackground": "#DCE0E8FF"
+            },
+            "window":
+            {
+                "applicationTheme": "light",
+                "experimental.rainbowFrame": false,
+                "frame": null,
+                "unfocusedFrame": null,
+                "useMica": false
+            }
+        }
+    ]
+}
