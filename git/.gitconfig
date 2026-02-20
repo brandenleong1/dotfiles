@@ -1,0 +1,20 @@
+[user]
+	name = Branden Leong
+	email = branden.leong.1@gmail.com
+[rerere]
+	enabled = true
+[diff]
+	algorithm = histogram
+	colorMoved = plain
+	mnemonicprefix = true
+	renames = true
+[push]
+	autoSetupRemote = true
+[fetch]
+	prune = true
+[merge]
+	conflictStyle = zdiff3
+[help]
+	autocorrect = prompt
+[core]
+	editor = vim
