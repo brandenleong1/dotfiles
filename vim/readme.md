@@ -1,5 +1,7 @@
 # Vim
 
+Run `install.sh` for automatic installation. For manual installation, follow the instructions below.
+
 Place `.vimrc` in the home directory (`~/.vimrc`)
 
 Clone pack repos in `~/.vim/pack/*/start` (replace `*` with anything, perhaps `vendor`)
