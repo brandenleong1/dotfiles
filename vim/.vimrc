@@ -26,6 +26,11 @@ set showcmd
 " au BufWritePost *.c,*.cpp,*.h,*.py silent! !ctags -R &
 " autocmd FocusGained,BufEnter * :checktime
 
+if !isdirectory($HOME . '/.vim/tmp')
+	call mkdir($HOME . '/.vim/tmp', 'p')
+endif
+set directory=~/.vim/tmp//
+
 set list
 set listchars=trail:·,tab:\→\ ,nbsp:␣,extends:›,precedes:‹
 highlight SpecialKey ctermfg=248 ctermbg=NONE
