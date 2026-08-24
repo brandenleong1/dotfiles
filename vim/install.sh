@@ -26,6 +26,7 @@ function install_packs() {
 		"https://github.com/vim-airline/vim-airline-themes.git"
 		"https://github.com/tpope/vim-fugitive.git"
 		"https://github.com/ludovicchabant/vim-gutentags.git"
+		"https://github.com/Thyrum/vim-stabs.git"
 	)
 
 	for plugin in "${plugins[@]}"; do
@@ -44,5 +45,20 @@ function install_packs() {
 	echo "Vim plugins installed to $PACK_DIR"
 }
 
+function install_after() {
+	local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	local AFTER_DIR="$HOME/.vim/after"
+
+	if [ -d "$SCRIPT_DIR/after" ]; then
+		mkdir -p "$AFTER_DIR"
+		cp -r "$SCRIPT_DIR/after/." "$AFTER_DIR/"
+		echo ""
+		echo "Vim after/ files installed to $AFTER_DIR"
+	else
+		echo "Warning: No after/ directory found in $SCRIPT_DIR"
+	fi
+}
+
 install_vimrc
 install_packs
+install_after

@@ -15,3 +15,4 @@ Clone pack repos in `~/.vim/pack/*/start` (replace `*` with anything, perhaps `v
 * vim-airline-themes - [vim-airline/vim-airline-themes](https://github.com/vim-airline/vim-airline-themes)
 * vim-fugitive - [tpope/vim-fugitive](https://github.com/tpope/vim-fugitive)
 * vim-gutentags - [ludovicchabant/vim-gutentags](https://github.com/ludovicchabant/vim-gutentags)
+* vim-stabs - [Thyrum/vim-stabs](https://github.com/Thyrum/vim-stabs)

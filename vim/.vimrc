@@ -1,6 +1,7 @@
 set nocompatible
 
 let g:polyglot_disabled = ['sensible']
+let g:stabs_maps = 'tboO='
 
 set number
 set relativenumber
@@ -37,6 +38,7 @@ highlight SpecialKey ctermfg=248 ctermbg=NONE
 
 set tabstop=4
 set softtabstop=0 noexpandtab
+
 set shiftwidth=4
 set scrolloff=4
 
