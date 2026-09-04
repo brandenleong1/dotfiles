@@ -1,8 +1,14 @@
 #!/bin/bash
 
-function install_vimrc() {
-	local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "$BASH_VERSION" ]; then
+	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+elif [ -n "$ZSH_VERSION" ]; then
+	SCRIPT_DIR="${0:A:h}"
+else
+	SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 
+function install_vimrc() {
 	if [ -f "$SCRIPT_DIR/.vimrc" ]; then
 		if [ -f "$HOME/.vimrc" ]; then
 			cp "$HOME/.vimrc" "$HOME/.vimrc.bak"
@@ -31,7 +37,7 @@ function install_packs() {
 
 	for plugin in "${plugins[@]}"; do
 		local plugin_name=$(basename "$plugin" .git)
-		
+
 		if [ -d "$PACK_DIR/$plugin_name" ]; then
 			echo "Updating '$plugin_name'..."
 			git -C "$PACK_DIR/$plugin_name" pull
@@ -46,7 +52,6 @@ function install_packs() {
 }
 
 function install_after() {
-	local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	local AFTER_DIR="$HOME/.vim/after"
 
 	if [ -d "$SCRIPT_DIR/after" ]; then
