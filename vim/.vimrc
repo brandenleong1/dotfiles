@@ -1,5 +1,7 @@
 set nocompatible
 
+filetype plugin indent on
+
 let g:polyglot_disabled = ['sensible']
 let g:stabs_maps = 'tboO='
 
@@ -66,4 +68,7 @@ let g:airline_theme = 'papercolor'
 let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
 let g:airline_section_z = '%p%% ☰ %l/%L ln : %c'
+
+autocmd BufRead,BufNewFile *.lean setfiletype lean
+autocmd FileType lean setlocal expandtab tabstop=2 shiftwidth=2 softtabstop=2 | let b:smarttabs_enabled = 0
 
