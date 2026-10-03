@@ -19,12 +19,30 @@ function install_vimrc() {
 	fi
 }
 
+function install_plugin() {
+	local pack_dir="$1"
+	local plugin="$2"
+	local plugin_name
+	plugin_name="$(basename "$plugin" .git)"
+
+	mkdir -p "$pack_dir"
+
+	if [ -d "$pack_dir/$plugin_name/.git" ]; then
+		echo "Updating '$plugin_name'..."
+		git -C "$pack_dir/$plugin_name" pull --ff-only
+	elif [ -e "$pack_dir/$plugin_name" ]; then
+		echo "Warning: '$pack_dir/$plugin_name' exists but is not a Git repository"
+	else
+		echo "Installing '$plugin_name'..."
+		git clone "$plugin" "$pack_dir/$plugin_name"
+	fi
+}
+
 function install_packs() {
-	local PACK_DIR="$HOME/.vim/pack/vendor/start"
+	local START_DIR="$HOME/.vim/pack/vendor/start"
+	local OPT_DIR="$HOME/.vim/pack/vendor/opt"
 
-	mkdir -p "$PACK_DIR"
-
-	plugins=(
+	local plugins=(
 		"https://github.com/preservim/nerdtree.git"
 		"https://github.com/airblade/vim-gitgutter.git"
 		"https://github.com/sheerun/vim-polyglot.git"
@@ -36,19 +54,60 @@ function install_packs() {
 	)
 
 	for plugin in "${plugins[@]}"; do
-		local plugin_name=$(basename "$plugin" .git)
+		install_plugin "$START_DIR" "$plugin"
+	done
 
-		if [ -d "$PACK_DIR/$plugin_name" ]; then
-			echo "Updating '$plugin_name'..."
-			git -C "$PACK_DIR/$plugin_name" pull
-		else
-			echo "Installing '$plugin_name'..."
-			git clone "$plugin" "$PACK_DIR/$plugin_name"
-		fi
+	local opt_plugins=(
+		"https://github.com/yegappan/lsp.git"
+	)
+
+	for plugin in "${opt_plugins[@]}"; do
+		install_plugin "$OPT_DIR" "$plugin"
 	done
 
 	echo ""
-	echo "Vim plugins installed to $PACK_DIR"
+	echo "Vim plugins installed under $HOME/.vim/pack/vendor"
+}
+
+function color_text() {
+	local text="$1"
+	local color_code="$2"
+
+	local UNSET="\e[0m"
+
+	echo -ne "${color_code}${text}${UNSET}"
+}
+
+function check_lsp_dependencies() {
+	local SUCCESS_COLOR="\e[0;32m"
+	local FAILURE_COLOR="\e[0;31m"
+
+	echo ""
+	echo "LSP server status:"
+
+	if command -v clangd >/dev/null 2>&1; then
+		echo -e "  C/C++:  clangd $(color_text 'found' $SUCCESS_COLOR)"
+	else
+		echo -e "  C/C++:  clangd $(color_text 'missing' $FAILURE_COLOR) (Ubuntu: sudo apt install clangd)"
+	fi
+
+	if command -v pyright-langserver >/dev/null 2>&1 || [ -x "$HOME/.local/bin/pyright-langserver" ]; then
+		echo -e "  Python: pyright-langserver $(color_text 'found' $SUCCESS_COLOR)"
+	else
+		echo -e "  Python: pyright-langserver $(color_text 'missing' $FAILURE_COLOR) (npm install --global --prefix ~/.local pyright)"
+	fi
+
+	if command -v lake >/dev/null 2>&1 || [ -x "$HOME/.elan/bin/lake" ]; then
+		echo -e "  Lean:   lake $(color_text 'found' $SUCCESS_COLOR)"
+	else
+		echo -e "  Lean:   lake $(color_text 'missing' $FAILURE_COLOR) (install Lean using elan)"
+	fi
+
+	if command -v ctags >/dev/null 2>&1; then
+		echo -e "  Tags:   ctags $(color_text 'found' $SUCCESS_COLOR)"
+	else
+		echo -e "  Tags:   ctags $(color_text 'missing' $FAILURE_COLOR); vim-gutentags will remain disabled"
+	fi
 }
 
 function install_after() {
@@ -67,3 +126,4 @@ function install_after() {
 install_vimrc
 install_packs
 install_after
+check_lsp_dependencies
