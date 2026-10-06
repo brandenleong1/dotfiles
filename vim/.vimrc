@@ -70,7 +70,20 @@ let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
 let g:airline_section_z = '%p%% ☰ %l/%L ln : %c'
 
+function! s:SetLeanProjectRoot() abort
+	let l:start_dir = expand('%:p:h')
+
+	for l:marker in ['lakefile.toml', 'lakefile.lean', 'lean-toolchain']
+		let l:project_file = findfile(l:marker, l:start_dir . ';')
+		if !empty(l:project_file)
+			execute 'lcd ' . fnameescape(fnamemodify(l:project_file, ':p:h'))
+			return
+		endif
+	endfor
+endfunction
+
 autocmd BufRead,BufNewFile *.lean setfiletype lean
+autocmd FileType lean call <SID>SetLeanProjectRoot()
 autocmd FileType lean setlocal expandtab tabstop=2 shiftwidth=2 softtabstop=2 | let b:smarttabs_enabled = 0
 
 " LSP for Vim >9.0
@@ -84,6 +97,7 @@ if has('patch-9.0.0000') && has('job') && has('channel')
 			\ 'showDiagInPopup': v:true,
 			\ 'showDiagWithVirtualText': v:false,
 			\ 'showSignature': v:true,
+			\ 'semanticHighlight': v:true,
 			\ }
 
 		let g:lsp_servers = []
