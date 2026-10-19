@@ -86,9 +86,11 @@ autocmd BufRead,BufNewFile *.lean setfiletype lean
 autocmd FileType lean call <SID>SetLeanProjectRoot()
 autocmd FileType lean setlocal expandtab tabstop=2 shiftwidth=2 softtabstop=2
 
-let g:vim_markdown_conceal = 0
-let g:vim_markdown_conceal_code_blocks = 0
-let g:indentline_concealcursor = ''
+let g:vim_markdown_conceal=0
+let g:vim_markdown_conceal_code_blocks=0
+let g:vim_json_syntax_conceal=0
+let g:tex_conceal='S'
+let g:csv_no_conceal=1
 
 " LSP for Vim >9.0
 if has('patch-9.0.0000') && has('job') && has('channel')
