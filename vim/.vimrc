@@ -3,7 +3,7 @@ set nocompatible
 filetype plugin indent on
 
 let g:polyglot_disabled = ['sensible']
-let g:stabs_maps = 'tboO='
+let g:stabs_maps = 'toO='
 let g:gutentags_enabled = executable('ctags')
 
 set number
@@ -23,16 +23,16 @@ set autoread
 set smartindent
 set autoindent
 set smarttab
+set expandtab
+
+set backspace=indent,eol,start
 
 set hidden
 
 set showcmd
 
-" au BufWritePost *.c,*.cpp,*.h,*.py silent! !ctags -R &
-" autocmd FocusGained,BufEnter * :checktime
-
 if !isdirectory($HOME . '/.vim/tmp')
-	call mkdir($HOME . '/.vim/tmp', 'p')
+    call mkdir($HOME . '/.vim/tmp', 'p')
 endif
 set directory=~/.vim/tmp//
 
@@ -41,7 +41,7 @@ set listchars=trail:·,tab:\→\ ,nbsp:␣,extends:›,precedes:‹
 highlight SpecialKey ctermfg=248 ctermbg=NONE
 
 set tabstop=4
-set softtabstop=0 noexpandtab
+set softtabstop=-1
 
 set shiftwidth=4
 set scrolloff=4
@@ -72,15 +72,15 @@ let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
 let g:airline_section_z = '%p%% ☰ %l/%L ln : %c'
 
 function! s:SetLeanProjectRoot() abort
-	let l:start_dir = expand('%:p:h')
+    let l:start_dir = expand('%:p:h')
 
-	for l:marker in ['lakefile.toml', 'lakefile.lean', 'lean-toolchain']
-		let l:project_file = findfile(l:marker, l:start_dir . ';')
-		if !empty(l:project_file)
-			execute 'lcd ' . fnameescape(fnamemodify(l:project_file, ':p:h'))
-			return
-		endif
-	endfor
+    for l:marker in ['lakefile.toml', 'lakefile.lean', 'lean-toolchain']
+        let l:project_file = findfile(l:marker, l:start_dir . ';')
+        if !empty(l:project_file)
+            execute 'lcd ' . fnameescape(fnamemodify(l:project_file, ':p:h'))
+            return
+        endif
+    endfor
 endfunction
 
 autocmd BufRead,BufNewFile *.lean setfiletype lean
@@ -89,78 +89,78 @@ autocmd FileType lean setlocal expandtab tabstop=2 shiftwidth=2 softtabstop=2 | 
 
 " LSP for Vim >9.0
 if has('patch-9.0.0000') && has('job') && has('channel')
-	let s:lsp_package = globpath(&packpath, 'pack/vendor/opt/lsp')
+    let s:lsp_package = globpath(&packpath, 'pack/vendor/opt/lsp')
 
-	if !empty(s:lsp_package)
-		let g:lsp_options = {
-			\ 'autoComplete': v:true,
-			\ 'autoHighlightDiags': v:true,
-			\ 'showDiagInPopup': v:true,
-			\ 'showDiagWithVirtualText': v:false,
-			\ 'showSignature': v:true,
-			\ 'semanticHighlight': v:true,
-			\ }
+    if !empty(s:lsp_package)
+        let g:lsp_options = {
+            \ 'autoComplete': v:true,
+            \ 'autoHighlightDiags': v:true,
+            \ 'showDiagInPopup': v:true,
+            \ 'showDiagWithVirtualText': v:false,
+            \ 'showSignature': v:true,
+            \ 'semanticHighlight': v:true,
+            \ }
 
-		let g:lsp_servers = []
+        let g:lsp_servers = []
 
-		if executable('clangd')
-			call add(g:lsp_servers, {
-				\ 'name': 'clangd',
-				\ 'filetype': ['c', 'cpp'],
-				\ 'path': exepath('clangd'),
-				\ 'args': ['--background-index', '--clang-tidy'],
-				\ 'rootSearch': ['compile_commands.json', 'compile_flags.txt', '.git/'],
-				\ })
-		endif
+        if executable('clangd')
+            call add(g:lsp_servers, {
+                \ 'name': 'clangd',
+                \ 'filetype': ['c', 'cpp'],
+                \ 'path': exepath('clangd'),
+                \ 'args': ['--background-index', '--clang-tidy'],
+                \ 'rootSearch': ['compile_commands.json', 'compile_flags.txt', '.git/'],
+                \ })
+        endif
 
-		let s:pyright = exepath('pyright-langserver')
-		if empty(s:pyright)
-			let s:pyright = expand('~/.local/bin/pyright-langserver')
-		endif
-		if executable(s:pyright)
-			call add(g:lsp_servers, {
-				\ 'name': 'pyright',
-				\ 'filetype': 'python',
-				\ 'path': s:pyright,
-				\ 'args': ['--stdio'],
-				\ 'rootSearch': ['pyrightconfig.json', 'pyproject.toml', 'setup.py', '.git/'],
-				\ })
-		endif
+        let s:pyright = exepath('pyright-langserver')
+        if empty(s:pyright)
+            let s:pyright = expand('~/.local/bin/pyright-langserver')
+        endif
+        if executable(s:pyright)
+            call add(g:lsp_servers, {
+                \ 'name': 'pyright',
+                \ 'filetype': 'python',
+                \ 'path': s:pyright,
+                \ 'args': ['--stdio'],
+                \ 'rootSearch': ['pyrightconfig.json', 'pyproject.toml', 'setup.py', '.git/'],
+                \ })
+        endif
 
-		let s:lake = exepath('lake')
-		if empty(s:lake)
-			let s:lake = expand('~/.elan/bin/lake')
-		endif
-		if executable(s:lake)
-			call add(g:lsp_servers, {
-				\ 'name': 'lean',
-				\ 'filetype': 'lean',
-				\ 'path': s:lake,
-				\ 'args': ['serve'],
-				\ 'rootSearch': ['lakefile.lean', 'lakefile.toml', 'lean-toolchain', '.git/'],
-				\ 'runIfSearch': ['lakefile.lean', 'lakefile.toml', 'lean-toolchain'],
-				\ })
-		endif
+        let s:lake = exepath('lake')
+        if empty(s:lake)
+            let s:lake = expand('~/.elan/bin/lake')
+        endif
+        if executable(s:lake)
+            call add(g:lsp_servers, {
+                \ 'name': 'lean',
+                \ 'filetype': 'lean',
+                \ 'path': s:lake,
+                \ 'args': ['serve'],
+                \ 'rootSearch': ['lakefile.lean', 'lakefile.toml', 'lean-toolchain', '.git/'],
+                \ 'runIfSearch': ['lakefile.lean', 'lakefile.toml', 'lean-toolchain'],
+                \ })
+        endif
 
-		packadd lsp
+        packadd lsp
 
-		augroup dotfiles_lsp
-			autocmd!
-			autocmd User LspAttached nnoremap <buffer> <silent> gd <Cmd>LspGotoDefinition<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>pd <Cmd>LspPeekDefinition<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> gr <Cmd>LspShowReferences<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>pr <Cmd>LspPeekReferences<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> gi <Cmd>LspGotoImpl<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>pi <Cmd>LspPeekImpl<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> gy <Cmd>LspGotoTypeDef<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>py <Cmd>LspPeekTypeDef<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> K <Cmd>LspHover<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> [d <Cmd>LspDiag prev<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> ]d <Cmd>LspDiag next<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>rn <Cmd>LspRename<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>ca <Cmd>LspCodeAction<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>f <Cmd>LspFormat<CR>
-			autocmd User LspAttached nnoremap <buffer> <silent> <Leader>sh <Cmd>LspSwitchSourceHeader<CR>
-		augroup END
-	endif
+        augroup dotfiles_lsp
+            autocmd!
+            autocmd User LspAttached nnoremap <buffer> <silent> gd <Cmd>LspGotoDefinition<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>pd <Cmd>LspPeekDefinition<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> gr <Cmd>LspShowReferences<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>pr <Cmd>LspPeekReferences<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> gi <Cmd>LspGotoImpl<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>pi <Cmd>LspPeekImpl<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> gy <Cmd>LspGotoTypeDef<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>py <Cmd>LspPeekTypeDef<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> K <Cmd>LspHover<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> [d <Cmd>LspDiag prev<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> ]d <Cmd>LspDiag next<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>rn <Cmd>LspRename<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>ca <Cmd>LspCodeAction<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>f <Cmd>LspFormat<CR>
+            autocmd User LspAttached nnoremap <buffer> <silent> <Leader>sh <Cmd>LspSwitchSourceHeader<CR>
+        augroup END
+    endif
 endif
