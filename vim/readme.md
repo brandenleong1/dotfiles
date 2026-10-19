@@ -15,7 +15,7 @@ Clone regular pack repos in `~/.vim/pack/*/start` and optional pack repos in `~/
 * vim-airline-themes - [vim-airline/vim-airline-themes](https://github.com/vim-airline/vim-airline-themes)
 * vim-fugitive - [tpope/vim-fugitive](https://github.com/tpope/vim-fugitive)
 * vim-gutentags - [ludovicchabant/vim-gutentags](https://github.com/ludovicchabant/vim-gutentags)
-* vim-stabs - [Thyrum/vim-stabs](https://github.com/Thyrum/vim-stabs)
+* indentLine - [Yggdroot/indentLine](https://github.com/Yggdroot/indentLine)
 
 #### Optional:
 

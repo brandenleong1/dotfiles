@@ -50,7 +50,7 @@ function install_packs() {
 		"https://github.com/vim-airline/vim-airline-themes.git"
 		"https://github.com/tpope/vim-fugitive.git"
 		"https://github.com/ludovicchabant/vim-gutentags.git"
-		"https://github.com/Thyrum/vim-stabs.git"
+		"https://github.com/Yggdroot/indentLine.git"
 	)
 
 	for plugin in "${plugins[@]}"; do
