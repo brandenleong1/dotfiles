@@ -12,6 +12,7 @@ autocmd InsertEnter * :set norelativenumber
 autocmd InsertLeave * :set relativenumber
 
 set t_Co=256
+set background=light
 
 set cursorline
 highlight CursorLine ctermbg=NONE guibg=NONE
