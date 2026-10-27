@@ -8,6 +8,7 @@
 	colorMoved = plain
 	mnemonicprefix = true
 	renames = true
+	tool = vimdiff
 [push]
 	autoSetupRemote = true
 [fetch]
