@@ -22,3 +22,4 @@ Clone TPM to `~/.tmux/plugins`, then run `~/.tmux/plugins/tpm/bin/install_plugin
 * Tmux Plugin Manager - [tmux-plugins/tpm](https://github.com/tmux-plugins/tpm)
 * tmux-resurrect - [tmux-plugins/tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect)
 * tmux-continuum - [tmux-plugins/tmux-continuum](https://github.com/tmux-plugins/tmux-continuum)
+* tmux-battery - [tmux-plugins/tmux-battery](https://github.com/tmux-plugins/tmux-battery)
