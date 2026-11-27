@@ -1,0 +1,68 @@
+# Module (pages.enabled in .github/pr-automation.json): GitHub Pages for the default branch at the site's root and,
+# with pages.previews, every other branch under pages.previewDir/<branch>/. Each deployment replaces the whole site, so
+# all branches are published together, by tools/pages.mjs from the default branch: it reads each branch as git objects
+# and copies only the files pages.include lists, never running or checking out branch code. The PR bot dispatches
+# this after its own merges, rebuilds and prunes (its pushes and deletions start no push or delete workflows).
+# Set Settings → Pages → Source to "GitHub Actions", and restrict the github-pages environment to the default branch,
+# so no branch's own workflow file can deploy. Every preview is public, even in a private repository on a paid plan,
+# and runs unreviewed code on the site's origin (README.md, "Pages previews").
+name: Pages
+on:
+  workflow_run:
+    workflows: [Pages Trigger]
+    types: [completed]
+  delete:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.ref_name == github.event.repository.default_branch &&
+      (github.event_name != 'delete' || github.event.ref_type == 'branch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      enabled: ${{ steps.config.outputs.enabled }}
+    steps:
+      # always the publisher from the default branch; the other branches only supply files
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Read the config
+        id: config
+        run: node tools/pr-config.mjs outputs pages
+      - name: Assemble the site and the branch previews
+        if: steps.config.outputs.enabled == 'true'
+        run: node tools/pages.mjs "$RUNNER_TEMP/pages"
+      - if: steps.config.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/pages
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy all branches
+        id: deployment
+        uses: actions/deploy-pages@v4

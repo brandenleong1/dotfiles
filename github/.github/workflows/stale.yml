@@ -1,0 +1,81 @@
+# Module (stale.enabled in .github/pr-automation.json), daily and on demand:
+#   - close-prs (stale.closePrs): a PR with no activity for stale.days is labelled stale.label and closed
+#     (actions/stale); stale.exemptLabel keeps one open. Issues are left alone, and so are the PRs' branches: deleting
+#     a branch other PRs are based on would close those too;
+#   - prune-branches (stale.pruneBranches): the PR bot deletes branches with no open PR that are merged, or have had no
+#     commit for branches.staleDays, moving PRs based on one to the default branch first (tools/pr-bot.mjs).
+# Both run from the default branch, with the permissions each needs.
+name: Stale
+on:
+  schedule:
+    - cron: '45 4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      enabled: ${{ steps.config.outputs.enabled }}
+      closePrs: ${{ steps.config.outputs.closePrs }}
+      pruneBranches: ${{ steps.config.outputs.pruneBranches }}
+      days: ${{ steps.config.outputs.days }}
+      label: ${{ steps.config.outputs.label }}
+      exemptLabel: ${{ steps.config.outputs.exemptLabel }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: config
+        run: node tools/pr-config.mjs outputs stale
+
+  close-prs:
+    needs: config
+    if: needs.config.outputs.enabled == 'true' && needs.config.outputs.closePrs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write   # label and close them
+      issues: write   # labels live on the issue side of a PR
+    steps:
+      - uses: actions/stale@v11
+        with:
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          days-before-pr-stale: ${{ needs.config.outputs.days }}
+          days-before-pr-close: 0
+          delete-branch: false
+          stale-pr-label: ${{ needs.config.outputs.label }}
+          exempt-pr-labels: ${{ needs.config.outputs.exemptLabel }}
+          close-pr-message: >
+            Closed after a long time without activity. To pick it up again, reopen it (or open a new PR) and bring the
+            branch up to date. A branch with no open PR is deleted once it has gone long enough without a commit.
+
+  prune-branches:
+    needs: [config, close-prs]
+    if: >-
+      always() && needs.config.outputs.enabled == 'true' && needs.config.outputs.pruneBranches == 'true' &&
+      (needs.close-prs.result == 'success' || needs.close-prs.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # delete branches
+      pull-requests: write   # move PRs based on a branch it deletes
+      actions: write   # refresh Pages, if it's on
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/pr-bot.mjs branches && node tools/pr-bot.mjs prune-branches

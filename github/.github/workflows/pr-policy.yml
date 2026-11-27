@@ -1,0 +1,76 @@
+# PR policy (docs/pr_guidelines.md, with the rules in .github/pr-automation.json): the title (which becomes the commit
+# subject), the description, the branch name, and the files. Re-runs when the title or description is edited, and on
+# every push. `pr-policy` is a check the PR bot merges on. The description's Testing section reports the author's own
+# local checks ("Tested at <sha>" and each testing.localChecks line) for the PR's head, or for a commit that makes the
+# same changes (a clean rebase or update, the PR bot's included: tools/same-changes.mjs compares them). A push with
+# other changes fails this until the section is updated.
+# It runs tools/check-pr.mjs and tools/same-changes.mjs as the default branch has them, never the PR's or its base's
+# copy, with a read-only token; the PR's title and body reach them only through `env:`.
+# The PR bot also dispatches it on a PR it rebuilt (its push starts no pull_request run). Then the PR comes from the
+# API, and only if its head is the commit this run checks.
+name: PR Policy
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Number of the pull request whose head is this branch's head
+        required: true
+        type: string
+
+permissions:
+  contents: read   # fetch the tested commit, the head and the base, to compare their changes
+  pull-requests: read   # the PR, its added and changed files, and its timeline (the base's force-pushes)
+
+jobs:
+  pr-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The checker as on the default branch, never as the PR or its base has it. Not the base commit: that's a stale
+      # default branch for a PR that's behind (an old rule), and for a stacked PR it's the lower PR's branch.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Check the title and description
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]] || { echo "::error::pr must be a pull request number"; exit 1; }
+          if [ "$EVENT" = workflow_dispatch ]; then
+            # The check lands on this run's commit, so the PR must be open, in this repository, with this branch at that
+            # commit. Right after the bot's push, GitHub may still show the old head for a moment: look a few times.
+            for try in 1 2 3 4 5 6 7; do
+              gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
+              jq -e --arg sha "$GITHUB_SHA" --arg ref "$GITHUB_REF_NAME" --arg repo "$GITHUB_REPOSITORY" \
+                '.state == "open" and .head.repo.full_name == $repo and .head.ref == $ref and .head.sha == $sha' "$RUNNER_TEMP/pr.json" >/dev/null && break
+              [ "$try" = 7 ] && { echo "::error::#$PR_NUMBER is not an open pull request with $GITHUB_REF_NAME at $GITHUB_SHA as its head"; exit 1; }
+              sleep 10
+            done
+            PR_TITLE=$(jq -r .title "$RUNNER_TEMP/pr.json")
+            PR_BODY=$(jq -r '.body // ""' "$RUNNER_TEMP/pr.json")
+            PR_AUTHOR=$(jq -r .user.login "$RUNNER_TEMP/pr.json")
+            PR_BRANCH=$(jq -r .head.ref "$RUNNER_TEMP/pr.json")
+            PR_HEAD_SHA=$(jq -r .head.sha "$RUNNER_TEMP/pr.json")
+            PR_BASE_REF=$(jq -r .base.ref "$RUNNER_TEMP/pr.json")
+          fi
+          PR_FILES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[] | select(.status != "removed") | .filename')
+          export PR_TITLE PR_BODY PR_AUTHOR PR_BRANCH PR_HEAD_SHA PR_BASE_REF PR_FILES
+          # When "Tested at" names another commit than the head: does it make the same changes? Always set here, so
+          # check-pr.mjs fails if this couldn't tell (by hand, without it, check-pr.mjs takes the line at its word).
+          PR_TESTED_CHANGES=$(GITHUB_TOKEN="$GH_TOKEN" node tools/same-changes.mjs) || PR_TESTED_CHANGES=error
+          export PR_TESTED_CHANGES
+          node tools/check-pr.mjs

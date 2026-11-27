@@ -1,0 +1,170 @@
+{
+	"$schema": "./pr-automation.schema.json",
+	"defaultBranch": "main",
+	"title": {
+		"areas": [
+			"Core",
+			"API",
+			"UI",
+			"Build",
+			"CI",
+			"Docs",
+			"Test",
+			"Deps"
+		],
+		"maxTags": 2,
+		"qualifiers": [
+			"Fix",
+			"Feature",
+			"Performance",
+			"Refactor"
+		],
+		"maxLength": 80,
+		"titleCase": true,
+		"imperative": true,
+		"example": "[UI] Fix: Keep the Menu Open after a Click"
+	},
+	"branch": {
+		"pattern": "user",
+		"prefixes": [],
+		"regex": "",
+		"exempt": []
+	},
+	"description": {
+		"requiredSections": [
+			"Context",
+			"Changes",
+			"Testing"
+		],
+		"pastTenseSections": [
+			"Changes",
+			"Testing"
+		],
+		"sensitivePatterns": []
+	},
+	"testing": {
+		"section": "Testing",
+		"requireTestedAt": true,
+		"localChecks": [
+			{
+				"name": "the test suite",
+				"match": "\\b(npm (run )?test|node tools/run-tests\\.mjs|ctest|make (check|test)|pytest|cargo test|go test)\\b",
+				"paths": [],
+				"why": ""
+			}
+		]
+	},
+	"forbidden": {
+		"paths": [
+			"(^|/)\\.env$",
+			"\\.(pem|key|p12|pfx|keystore|jks)$",
+			"(^|/)id_(rsa|dsa|ecdsa|ed25519)$"
+		],
+		"message": "look like credentials or private keys. Never add them; rotate any that were pushed."
+	},
+	"merge": {
+		"method": "squash",
+		"status": "pr-bot",
+		"requiredChecks": [
+			"precommit",
+			"pr-policy"
+		],
+		"approvals": 1,
+		"ciApprovals": 2,
+		"ciPaths": [
+			"^\\.github/",
+			"^tools/(pr-bot|pr-config|check-pr|same-changes|restack|screenshot-comment|png|pages|run-tests)\\.mjs$",
+			"^tools/(github-setup|merge-pr)\\.sh$"
+		],
+		"approverAssociations": [
+			"OWNER",
+			"MEMBER",
+			"COLLABORATOR"
+		],
+		"carryApprovals": "count"
+	},
+	"rebuild": {
+		"enabled": true,
+		"checkWorkflows": [
+			{
+				"file": "precommit.yml",
+				"withPr": false
+			},
+			{
+				"file": "pr-policy.yml",
+				"withPr": true
+			}
+		],
+		"reviewDelayMinutes": 5
+	},
+	"ruleset": {
+		"requiredChecks": [
+			"pr-bot"
+		]
+	},
+	"branches": {
+		"staleDays": 30,
+		"keep": []
+	},
+	"labels": {
+		"hold": "hold",
+		"extra": []
+	},
+	"precommit": {
+		"syntaxCheck": true,
+		"npmCi": false,
+		"scripts": [],
+		"runTests": true
+	},
+	"postcommit": {
+		"enabled": false
+	},
+	"screenshots": {
+		"requiredFor": [],
+		"enabled": false,
+		"script": "screenshots",
+		"install": "",
+		"views": [],
+		"branch": "bot/screenshots",
+		"pruneDays": 30,
+		"limits": {
+			"views": 100,
+			"pngBytes": 3145728,
+			"totalBytes": 83886080,
+			"pixels": 16777216
+		}
+	},
+	"pages": {
+		"enabled": false,
+		"previews": true,
+		"include": [
+			"index.html"
+		],
+		"entry": "index.html",
+		"previewDir": "branches",
+		"previewMeta": "branch-preview",
+		"submodules": {}
+	},
+	"stale": {
+		"enabled": false,
+		"closePrs": true,
+		"days": 30,
+		"label": "stale",
+		"exemptLabel": "keep-open",
+		"pruneBranches": true
+	},
+	"submodules": {
+		"enabled": false,
+		"bumps": []
+	},
+	"localPreviews": {
+		"remote": "origin",
+		"port": 8000,
+		"fetchSeconds": 120,
+		"entry": "index.html",
+		"submodules": [],
+		"marker": "",
+		"titlePrefix": false,
+		"types": {}
+	}
+}

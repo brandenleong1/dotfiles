@@ -1,0 +1,182 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "PR automation config (.github/pr-automation.json)",
+	"description": "Read by every tool in tools/ through tools/pr-config.mjs, which merges this file over its defaults and refuses unknown keys and unsafe values. Every field is optional; the defaults are shown. Paths and patterns are JavaScript regular expressions as strings.",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"$schema": { "type": "string" },
+		"defaultBranch": { "type": "string", "default": "main", "description": "The branch PRs merge into. Keep it equal to the repository's default branch (the setup script warns if it isn't) and to `on.push.branches` in pr-bot.yml and postcommit.yml." },
+		"title": {
+			"type": "object", "additionalProperties": false,
+			"description": "The PR title, which becomes the commit subject: `[Area][Sub-area] Qualifier: Title Case Summary`.",
+			"properties": {
+				"areas": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,23}$" }, "default": ["Core", "API", "UI", "Build", "CI", "Docs", "Test", "Deps"], "description": "Allowed first tags. Empty: any one capitalised word." },
+				"maxTags": { "type": "integer", "minimum": 0, "maximum": 3, "default": 2, "description": "How many [Tag]s a title may have: the area, then sub-areas. 0: no tags at all (then `areas` must be empty)." },
+				"qualifiers": { "type": "array", "items": { "type": "string" }, "default": ["Fix", "Feature", "Performance", "Refactor"], "description": "The word before the colon. Empty: no qualifier." },
+				"maxLength": { "type": "integer", "minimum": 20, "maximum": 200, "default": 80 },
+				"titleCase": { "type": "boolean", "default": true, "description": "Book-title case: small words lower case unless first or last." },
+				"imperative": { "type": "boolean", "default": true, "description": "Refuse summaries that start \"Added\", \"Fixes\" and the like." },
+				"example": { "type": "string", "default": "[UI] Fix: Keep the Menu Open after a Click", "description": "Shown in the error for a malformed title; make it pass your own rules." }
+			}
+		},
+		"branch": {
+			"type": "object", "additionalProperties": false,
+			"description": "PR branch names, checked by pr-policy and (for `user` and `prefix`) enforced at creation by the branch-names ruleset where rulesets are enforced.",
+			"properties": {
+				"pattern": { "enum": ["user", "prefix", "regex", "any"], "default": "user", "description": "user: `<GitHub username>/<short-name>`, the username the PR author's; prefix: `<one of prefixes>/<short-name>`; regex: matches `regex`; any: not checked." },
+				"prefixes": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" }, "default": [], "description": "For pattern prefix, e.g. [\"feature\", \"fix\"]." },
+				"regex": { "type": "string", "default": "", "description": "For pattern regex." },
+				"exempt": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Branch names accepted whatever the pattern. The submodule bump branches are exempt by themselves." }
+			}
+		},
+		"description": {
+			"type": "object", "additionalProperties": false,
+			"properties": {
+				"requiredSections": { "type": "array", "items": { "type": "string" }, "default": ["Context", "Changes", "Testing"], "description": "`## Section` headings that must have content." },
+				"pastTenseSections": { "type": "array", "items": { "type": "string" }, "default": ["Changes", "Testing"], "description": "Sections whose bullets should start with a past-tense verb (a warning only)." },
+				"sensitivePatterns": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["pattern", "what"], "properties": { "pattern": { "type": "string" }, "what": { "type": "string" } } }, "default": [], "description": "Extra things no description may contain, besides personal paths, GitHub and AWS tokens, and private keys. `what` names it in the error, e.g. \"a customer's name\"." }
+			}
+		},
+		"testing": {
+			"type": "object", "additionalProperties": false,
+			"description": "The Testing section: the author's own results, for the head they're about (the \"Tested at\" model, README.md).",
+			"properties": {
+				"section": { "type": "string", "default": "Testing" },
+				"requireTestedAt": { "type": "boolean", "default": true, "description": "Require `Tested at <sha>` for the PR's head, or a commit with the same changes (tools/same-changes.mjs)." },
+				"localChecks": {
+					"type": "array",
+					"description": "Lines the section must have, each a bullet or paragraph matching `match` with a result (\"12 passed, 0 failed\", \"30 of 30 suites passed\", or \"skipped: <why>\"). With `paths`, only for PRs that change a matching path, and `why` says so in the error.",
+					"items": { "type": "object", "additionalProperties": false, "required": ["name", "match"], "properties": { "name": { "type": "string" }, "match": { "type": "string" }, "paths": { "type": "array", "items": { "type": "string" } }, "why": { "type": "string" } } },
+					"default": [{ "name": "the test suite", "match": "\\b(npm (run )?test|node tools/run-tests\\.mjs|ctest|make (check|test)|pytest|cargo test|go test)\\b", "paths": [], "why": "" }]
+				}
+			}
+		},
+		"forbidden": {
+			"type": "object", "additionalProperties": false,
+			"description": "Files no PR may add or change (matched case-insensitively against each path).",
+			"properties": {
+				"paths": { "type": "array", "items": { "type": "string" }, "default": ["(^|/)\\.env$", "\\.(pem|key|p12|pfx|keystore|jks)$", "(^|/)id_(rsa|dsa|ecdsa|ed25519)$"] },
+				"message": { "type": "string", "default": "look like credentials or private keys. Never add them; rotate any that were pushed.", "description": "Follows the list of matching files in the error." }
+			}
+		},
+		"merge": {
+			"type": "object", "additionalProperties": false,
+			"properties": {
+				"method": { "enum": ["squash", "merge", "rebase"], "default": "squash", "description": "How the bot merges. squash and merge commits get the guideline message (title, blank line, PR URL); rebase keeps the PR's commits." },
+				"status": { "type": "string", "default": "pr-bot", "description": "The commit status the bot keeps on each PR's head. `<status>-update` marks the default branch's commits it brought the PRs up to date with." },
+				"requiredChecks": { "type": "array", "items": { "type": "string" }, "default": ["precommit", "pr-policy"], "description": "Check-run (job) or status names that must pass on the head before the bot merges." },
+				"approvals": { "type": "integer", "minimum": 1, "maximum": 10, "default": 1 },
+				"ciApprovals": { "type": "integer", "minimum": 1, "maximum": 10, "default": 2, "description": "For PRs that change `ciPaths`: a PR's own workflows run from its files, so it could weaken what checks it." },
+				"ciPaths": { "type": "array", "items": { "type": "string" }, "default": ["^\\.github/", "^tools/(pr-bot|pr-config|check-pr|same-changes|restack|screenshot-comment|png|pages|run-tests)\\.mjs$", "^tools/(github-setup|merge-pr)\\.sh$"], "description": "Also never rebuilt by the bot." },
+				"approverAssociations": { "type": "array", "items": { "type": "string" }, "default": ["OWNER", "MEMBER", "COLLABORATOR"], "description": "Review author_association values that count as write access." },
+				"carryApprovals": { "enum": ["count", "review", "off"], "default": "count", "description": "An approval of a commit that makes exactly the same changes as the head (a clean rebase someone pushed): count it and say so in a comment; post an approval review that says whose it carries (needs Actions allowed to approve PRs); or never carry it. The bot's own rebuilds keep approvals in every mode." }
+			}
+		},
+		"rebuild": {
+			"type": "object", "additionalProperties": false,
+			"description": "Keeping open PRs up to date: after every merge the bot replays each behind PR's own commits onto its new base (stacks bottom up), as data, and pushes with a lease.",
+			"properties": {
+				"enabled": { "type": "boolean", "default": true },
+				"checkWorkflows": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["file"], "properties": { "file": { "type": "string" }, "withPr": { "type": "boolean" } } }, "default": [{ "file": "precommit.yml", "withPr": false }, { "file": "pr-policy.yml", "withPr": true }], "description": "Workflows the bot dispatches on a branch it pushed (its push starts no pull_request runs). `withPr`: the workflow takes a `pr` input." },
+				"reviewDelayMinutes": { "type": "integer", "minimum": 0, "maximum": 99, "default": 5, "description": "After a rebuild, the bot reviews again this many minutes later, once those checks have had time to finish." }
+			}
+		},
+		"ruleset": {
+			"type": "object", "additionalProperties": false,
+			"properties": {
+				"requiredChecks": { "type": "array", "items": { "type": "string" }, "default": ["pr-bot"], "description": "The status checks the default-branch ruleset requires (from GitHub Actions). Only the bot's status by default: checks a dispatch ran (on a PR the bot rebuilt) don't satisfy a ruleset's required checks, and the bot requires merge.requiredChecks itself." }
+			}
+		},
+		"branches": {
+			"type": "object", "additionalProperties": false,
+			"properties": {
+				"staleDays": { "type": "integer", "minimum": 1, "default": 30, "description": "prune-branches deletes branches with no open PR and no commit for this long (and merged ones)." },
+				"keep": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Branches the bot never deletes or rebuilds. The screenshot branch is kept by itself." }
+			}
+		},
+		"labels": {
+			"type": "object", "additionalProperties": false,
+			"properties": {
+				"hold": { "type": "string", "default": "hold", "description": "A ready PR with this label isn't merged (or rebuilt)." },
+				"extra": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["name"], "properties": { "name": { "type": "string" }, "color": { "type": "string", "pattern": "^[0-9a-fA-F]{6}$" }, "description": { "type": "string" } } }, "default": [], "description": "More labels for the setup script to create (e.g. for issue forms)." }
+			}
+		},
+		"precommit": {
+			"type": "object", "additionalProperties": false,
+			"description": "What precommit.yml runs on every PR, with a read-only token.",
+			"properties": {
+				"syntaxCheck": { "type": "boolean", "default": true, "description": "`node --check` on every tracked .js and .mjs file." },
+				"npmCi": { "type": "boolean", "default": false, "description": "Run `npm ci` first (needs package-lock.json)." },
+				"scripts": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9][\\w:.-]{0,63}$" }, "default": [], "description": "npm scripts to run, in order, e.g. [\"lint\", \"test\"]." },
+				"runTests": { "type": "boolean", "default": true, "description": "Run tools/run-tests.mjs (every standalone suite in test/, these tools' own included)." }
+			}
+		},
+		"postcommit": {
+			"type": "object", "additionalProperties": false,
+			"description": "Module: postcommit.yml checks the merged commit's message and runs precommit's steps on the default branch, after each merge (the bot dispatches it after its own) and weekly.",
+			"properties": { "enabled": { "type": "boolean", "default": false } }
+		},
+		"screenshots": {
+			"type": "object", "additionalProperties": false,
+			"description": "Screenshots: the description rule (requiredFor) and the module (screenshots.yml runs your script on the PR's base and the PR; screenshot-comment.yml compares and comments).",
+			"properties": {
+				"requiredFor": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Paths whose change needs a Screenshots section with an image (or, with the module on, \"See the Screenshots comment\")." },
+				"enabled": { "type": "boolean", "default": false },
+				"script": { "type": "string", "default": "screenshots", "description": "The npm script that writes `<view>.png` files into $SCREENSHOTS_DIR (an empty directory). It gets $SCREENSHOT_VIEWS, the views below, comma-separated." },
+				"install": { "type": "string", "default": "", "description": "An npm script to run first (e.g. one installing a browser). Empty: none." },
+				"views": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,47}$" }, "default": [], "description": "The views the script should take, in the order the comment shows them. Others it writes are shown after them." },
+				"branch": { "type": "string", "default": "bot/screenshots", "description": "Where the images are stored (auto/pr-<n>/...). Never pruned or rebuilt by the bot." },
+				"pruneDays": { "type": "integer", "minimum": 1, "default": 30, "description": "Images of PRs closed this long ago are deleted, daily." },
+				"limits": { "type": "object", "additionalProperties": false, "properties": { "views": { "type": "integer", "default": 100 }, "pngBytes": { "type": "integer", "default": 3145728 }, "totalBytes": { "type": "integer", "default": 83886080 }, "pixels": { "type": "integer", "default": 16777216 } }, "description": "Bounds on the untrusted artifact: views per side, bytes per image and in all, and pixels per image decoded." }
+			}
+		},
+		"pages": {
+			"type": "object", "additionalProperties": false,
+			"description": "Module: GitHub Pages from the default branch, with a preview of every other branch. Every preview is public and runs unreviewed code on the site's origin (README.md).",
+			"properties": {
+				"enabled": { "type": "boolean", "default": false },
+				"previews": { "type": "boolean", "default": true, "description": "Publish branches other than the default one under previewDir/<branch>/." },
+				"include": { "type": "array", "items": { "type": "string" }, "default": ["index.html"], "description": "What to publish: files, and directories ending with /." },
+				"entry": { "type": "string", "default": "index.html", "description": "A branch without this file isn't published; a preview's gets the preview meta tag." },
+				"previewDir": { "type": "string", "default": "branches" },
+				"previewMeta": { "type": "string", "default": "branch-preview", "description": "<meta name> holding the branch name in a preview's entry file." },
+				"submodules": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^https://" }, "default": {}, "description": "{ \"path/in/repo\": \"https://host/owner/repo.git\" }: submodules to publish, fetched at the pinned commit from this URL, never the branch's .gitmodules." }
+			}
+		},
+		"stale": {
+			"type": "object", "additionalProperties": false,
+			"description": "Module: stale.yml, daily: closes inactive PRs and prunes branches.",
+			"properties": {
+				"enabled": { "type": "boolean", "default": false },
+				"closePrs": { "type": "boolean", "default": true, "description": "Close PRs with no activity for `days` (actions/stale), labelled `label`; `exemptLabel` keeps one open. Their branches go with the prune." },
+				"days": { "type": "integer", "minimum": 1, "default": 30 },
+				"label": { "type": "string", "default": "stale" },
+				"exemptLabel": { "type": "string", "default": "keep-open" },
+				"pruneBranches": { "type": "boolean", "default": true, "description": "Run the bot's prune-branches (branches.staleDays)." }
+			}
+		},
+		"submodules": {
+			"type": "object", "additionalProperties": false,
+			"description": "Module: update-submodules.yml, daily: pushes each moved submodule's bump to its branch and links \"open the pull request\" in the run summary. A person opens the PR.",
+			"properties": {
+				"enabled": { "type": "boolean", "default": false },
+				"bumps": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["path", "branch", "title"], "properties": { "path": { "type": "string" }, "branch": { "type": "string" }, "title": { "type": "string", "description": "The PR title, one line without double quotes, $ or backslashes; {sha} is the new commit. Make it pass your title rules." } } }, "default": [] }
+			}
+		},
+		"localPreviews": {
+			"type": "object", "additionalProperties": false,
+			"description": "Module: tools/serve-branches.mjs (`npm run serve:branches`), local branch previews: every branch of a remote at /<branch>/, read straight from git, on 127.0.0.1. The private alternative to Pages previews. Flags (--port, --fetch, --remote, --host, --repo) override these.",
+			"properties": {
+				"remote": { "type": "string", "default": "origin", "description": "The remote whose branches (refs/remotes/<remote>/*) are served." },
+				"port": { "type": "integer", "minimum": 0, "maximum": 65535, "default": 8000, "description": "0: any free port." },
+				"fetchSeconds": { "type": "integer", "minimum": 0, "maximum": 86400, "default": 120, "description": "How often to `git fetch --prune` the remote. 0: never (fetch yourself)." },
+				"entry": { "type": "string", "default": "index.html", "description": "A branch is listed only if its tip has this file, and /<branch>/ opens it." },
+				"submodules": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Submodule paths to serve at the commit each branch pins, from the submodule's clone (fetched from its own remote when the commit is missing), e.g. [\"lib/theme\"]." },
+				"marker": { "type": "string", "default": "", "description": "If set, every HTML page gets <meta name=\"<marker>\" content=\"<branch>\"> after <head>, so the app can tell a preview, and which branch, from the real site (e.g. to keep its storage keys apart). Empty: pages are served as they are." },
+				"titlePrefix": { "type": "boolean", "default": false, "description": "Start each HTML page's <title> with [<branch>]." },
+				"types": { "type": "object", "additionalProperties": { "type": "string" }, "default": {}, "description": "Content types by extension, over the built-in list, e.g. { \".glb\": \"model/gltf-binary\" }. Unknown extensions are application/octet-stream." }
+			}
+		}
+	}
+}

@@ -1,0 +1,89 @@
+# Module (screenshots.enabled in .github/pr-automation.json), the trusted half: posts a Screenshots run's images on
+# its pull request. tools/screenshot-comment.mjs compares the base's and the PR's images, stores the changed ones on
+# the screenshot branch (screenshots.branch) and keeps one comment per PR up to date. It runs from the default branch
+# (workflow_run always runs the default branch's copy of this file), never the PR's code, and treats the artifact as
+# untrusted data: plain PNG files with strict names and bounded sizes, decoded with a bounded reader; nothing from them
+# reaches the comment but their checked names. A failed run gets a comment saying so. Daily, it deletes the images of
+# PRs closed screenshots.pruneDays ago and squashes the branch's history.
+name: Screenshot Comment
+on:
+  workflow_run:
+    workflows: [Screenshots]
+    types: [completed]
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+# One run per Screenshots run: a shared group would drop pending runs (GitHub keeps one waiting per group), and with
+# them those PRs' screenshots. tools/screenshot-comment.mjs handles runs that store images at the same time.
+concurrency:
+  group: screenshot-comment-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # the screenshot branch
+      pull-requests: write   # the comment
+      actions: read   # the other run's artifact
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Read the config
+        id: config
+        run: node tools/pr-config.mjs outputs screenshots
+      - name: Download the images (untrusted)
+        id: download
+        if: steps.config.outputs.enabled == 'true' && github.event.workflow_run.conclusion == 'success'
+        continue-on-error: true   # no artifact: the run took no images
+        uses: actions/download-artifact@v8
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/shots
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Post them on the PR
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SHOTS: ${{ runner.temp }}/shots
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: node tools/screenshot-comment.mjs post "$SHOTS" "$HEAD_SHA" "$CONCLUSION" "$RUN_URL"
+
+  prune:
+    if: github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # the screenshot branch
+      pull-requests: read   # when each PR closed
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Read the config
+        id: config
+        run: node tools/pr-config.mjs outputs screenshots
+      - name: Delete the images of PRs closed long ago
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/screenshot-comment.mjs prune

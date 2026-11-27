@@ -1,0 +1,107 @@
+# The PR bot (tools/pr-bot.mjs) merges pull requests; people don't. It keeps the `pr-bot` status (merge.status in
+# .github/pr-automation.json) pending, with the reason, until a PR is ready: the checks in merge.requiredChecks green
+# on its head, up to date, not a draft, no conflicts, no changes requested, and enough people with write access
+# approved the head commit. Then it turns the status green and merges at once, with the guideline commit message, so
+# nobody can press Merge and type their own. Reviews on an older head with other changes are dismissed and
+# re-requested, so no code merges unreviewed. PRs with the hold label wait.
+#   - review (and merge): after Precommit, PR Policy or PR Reviewed, and on label or ready-for-review changes;
+#   - after a push to the default branch, which is a merge made by hand (the bot's own merges, made with this
+#     workflow's token, start no workflows): one run per merge, which brings every open PR up to date, then reviews;
+#   - by hand (Actions → PR Bot → Run workflow): a review, an update of every open PR, or deleting branches with no
+#     open PR that are merged or older than branches.staleDays.
+# After its own merge it closes the issues the PR fixes, brings every open PR that is now behind its base up to date
+# (tools/restack.mjs), and deletes the PR's branch. The PRs stacked on that branch move to the default branch first:
+# the bot deletes it, and GitHub moves them. Then it rebuilds them on it, stacks bottom up, pushes them, starts their
+# checks, and dispatches itself to review again a few minutes later.
+# It never checks out or runs PR code: it runs tools/pr-bot.mjs from the default branch (also for pull_request_target
+# events), and PRs' commits are only fetched into an empty repository of its own, as data, and replayed there. Its own
+# pushes, made with this workflow's token, start no workflows, so they can't trigger it again.
+name: PR Bot
+on:
+  push:
+    branches: [main]   # your default branch (defaultBranch in .github/pr-automation.json)
+  workflow_run:
+    workflows: [Precommit, PR Policy, PR Reviewed]
+    types: [completed]
+  pull_request_target:
+    types: [labeled, unlabeled, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      run:
+        description: What to run
+        type: choice
+        options: [review, update, prune-branches]
+        default: review
+      delay:
+        description: Minutes to wait before the review (the bot sets this after a rebuild, for its checks to finish)
+        required: false
+        default: '0'
+
+permissions: {}
+
+jobs:
+  # A review the bot asked for after it rebuilt PRs waits here, outside the review's concurrency group, so it holds up
+  # no other pass while it waits. Skipped otherwise.
+  wait:
+    if: github.event_name == 'workflow_dispatch' && inputs.run == 'review' && inputs.delay != '0' && inputs.delay != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - env:
+          DELAY: ${{ inputs.delay }}
+        run: |
+          [[ "$DELAY" =~ ^[0-9]{1,2}$ ]] || { echo "::error::delay must be a number of minutes"; exit 1; }
+          sleep $((DELAY * 60))
+
+  review:
+    needs: wait
+    if: >-
+      always() && (needs.wait.result == 'success' || needs.wait.result == 'skipped') &&
+      (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'workflow_dispatch' || inputs.run == 'review' || inputs.run == 'update')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # delete merged branches; push a PR it rebuilt on its base
+      pull-requests: write   # dismiss outdated reviews, re-request reviewers, carry approvals over, merge
+      issues: write   # close the issues a merged PR fixes (GitHub doesn't for a merge made with this token)
+      statuses: write   # the `pr-bot` status, and `pr-bot-update` on the default branch once the open PRs are up to date
+      checks: read
+      actions: write   # start a rebuilt PR's checks, its own review a few minutes later, postcommit and Pages
+    concurrency:
+      group: pr-bot-review
+      cancel-in-progress: false   # never stop a pass between turning the status green and merging
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # `update` by hand; any other run reviews, updating the open PRs first if the default branch moved since
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.run }}
+        run: |
+          if [ "$RUN" = update ]; then node tools/pr-bot.mjs update; else node tools/pr-bot.mjs review; fi
+
+  prune-branches:
+    if: github.event_name == 'workflow_dispatch' && inputs.run == 'prune-branches'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # delete branches
+      pull-requests: write   # move PRs based on a branch it deletes
+      actions: write   # refresh Pages, if it's on
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/pr-bot.mjs branches && node tools/pr-bot.mjs prune-branches

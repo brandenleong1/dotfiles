@@ -1,0 +1,15 @@
+# Module (pages.enabled in .github/pr-automation.json). A push to any branch only signals that a site may have
+# changed: it runs no code, checks nothing out and holds no permissions. When it completes, pages.yml runs from the
+# default branch (workflow_run always runs the default branch's copy) and republishes every branch together.
+name: Pages Trigger
+on:
+  push:
+    branches: ['**']
+
+permissions: {}
+
+jobs:
+  changed:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'A branch changed'

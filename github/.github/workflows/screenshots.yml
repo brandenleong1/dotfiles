@@ -1,0 +1,72 @@
+# Module (screenshots.enabled in .github/pr-automation.json), the untrusted half: screenshots of the PR's base and of
+# the PR, for reviewing how a change looks from the PR page. Your repository supplies the shooting: the npm script
+# screenshots.script writes `<view>.png` files into $SCREENSHOTS_DIR (an empty directory), taking the views in
+# $SCREENSHOT_VIEWS (screenshots.views, comma-separated) if it wants them; screenshots.install, if set, runs first in
+# each checkout (to install a browser, say). This run uses the PR's own code (it may come from a fork), with a
+# read-only token and no stored credentials, and only uploads the image files: screenshot-comment.yml, from the default
+# branch, checks them, compares them and comments. Runs on every push to the PR, so new code always gets new pictures.
+name: Screenshots
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the PR
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          path: after
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # the PR's config: this job runs the PR's code anyway, and the comment workflow trusts nothing from it
+      - name: Read the config
+        id: config
+        working-directory: after
+        run: node tools/pr-config.mjs outputs screenshots
+      - name: Check out the base
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          submodules: recursive
+          path: before
+          persist-credentials: false
+      - name: Take the screenshots
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          SCRIPT: ${{ steps.config.outputs.script }}
+          INSTALL: ${{ steps.config.outputs.install }}
+          VIEWS: ${{ steps.config.outputs.views }}
+        run: |
+          shoot() {   # shoot <checkout> <side>: the checkout's own script, into shots/<side>
+            local out="$RUNNER_TEMP/shots/$2"
+            mkdir -p "$out"
+            (
+              cd "$1"
+              if [ -n "$INSTALL" ]; then npm run --if-present "$INSTALL"; fi
+              SCREENSHOTS_DIR="$out" SCREENSHOT_VIEWS="$VIEWS" npm run --if-present "$SCRIPT"
+            )
+          }
+          shoot after after
+          shoot before before || echo "::warning::The base's screenshot script failed: every view shows as new."
+      - name: Upload the images
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/shots/
+          retention-days: 7
+          if-no-files-found: warn

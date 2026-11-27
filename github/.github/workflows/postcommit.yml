@@ -1,0 +1,55 @@
+# Module (postcommit.enabled in .github/pr-automation.json): checks on the default branch after each merge, and
+# weekly. The commit message follows docs/pr_guidelines.md (title, blank line, PR URL; not for rebase merges), and
+# precommit's checks pass on the merged commit. The weekly run (tests only) catches drift in runners and
+# dependencies. A merge by hand starts it through the push; the PR bot dispatches it after its own merges, which start
+# no push workflows. Off: every job is skipped.
+name: Postcommit
+on:
+  push:
+    branches: [main]   # your default branch (defaultBranch in .github/pr-automation.json)
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.on.outputs.enabled }}
+      method: ${{ steps.merge.outputs.method }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: on
+        run: node tools/pr-config.mjs outputs postcommit
+      - id: merge
+        run: node tools/pr-config.mjs outputs merge
+
+  commit-format:
+    name: Commit message format
+    needs: config
+    if: needs.config.outputs.enabled == 'true' && needs.config.outputs.method != 'rebase' && github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: The merged commit follows docs/pr_guidelines.md (title, blank line, PR URL)
+        run: git log -1 --format=%B | node tools/check-pr.mjs --commit
+
+  test:
+    needs: config
+    if: needs.config.outputs.enabled == 'true'
+    uses: ./.github/workflows/precommit.yml

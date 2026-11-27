@@ -1,0 +1,61 @@
+# Module (submodules.enabled in .github/pr-automation.json), daily and on demand: for each of submodules.bumps whose
+# submodule moved upstream, push the bump to its branch, and put a one-click "open the pull request" link in the run
+# summary. Anyone with write access opens the PR from there; it then goes through review and the PR bot like any
+# other. The workflow doesn't open PRs itself: that needs "Allow GitHub Actions to create and approve pull requests",
+# which would also let a workflow approve PRs and stand in for a reviewer. Its push, made with this workflow's token,
+# starts no workflows. It runs the default branch's code only; the submodule's URL is the default branch's .gitmodules.
+name: Update Submodules
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # push the bump branches
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          submodules: recursive
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Read the config
+        id: config
+        run: node tools/pr-config.mjs outputs submodules
+      - name: Push each bump branch
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          base=$(git rev-parse HEAD)
+          node tools/pr-config.mjs bumps > "$RUNNER_TEMP/bumps.tsv"
+          while IFS=$'\t' read -r path branch title; do
+            [ -n "$path" ] || continue
+            git submodule update --init --remote -- "$path"
+            if git diff --quiet -- "$path"; then
+              echo "\`$path\` is up to date" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            sha=$(git -C "$path" rev-parse --short HEAD)
+            title=${title//\{sha\}/$sha}
+            git add -- "$path"
+            git commit --quiet -m "$title"
+            git push --force origin "HEAD:refs/heads/$branch"
+            url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$DEFAULT_BRANCH...$branch?expand=1&title=$(jq -rn --arg t "$title" '$t|@uri')"
+            {
+              echo "### \`$path\` has updates"
+              echo "Pushed \`$branch\` with \`$path\` at \`$sha\`."
+              echo "[Open the pull request]($url). Fill in its description; review and the PR bot do the rest."
+            } >> "$GITHUB_STEP_SUMMARY"
+            git reset --quiet --hard "$base"
+            git submodule update --init -- "$path"
+          done < "$RUNNER_TEMP/bumps.tsv"

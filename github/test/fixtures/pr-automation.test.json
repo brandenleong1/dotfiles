@@ -1,0 +1,13 @@
+{
+	"$comment": "The config the tests run with (PR_AUTOMATION_CONFIG), so they never depend on the repository's own .github/pr-automation.json: the defaults, plus the local checks and screenshot paths the tests use.",
+	"testing": {
+		"localChecks": [
+			{ "name": "`npm test`", "match": "\\bnpm test\\b|\\bnode tools/run-tests\\.mjs\\b" },
+			{ "name": "`npm run test:e2e`", "match": "\\bnpm run test:e2e\\b" },
+			{ "name": "`npm run bench`", "match": "\\bnpm run bench\\b", "paths": ["^src/engine/"], "why": "it changes `src/engine/`" }
+		]
+	},
+	"screenshots": {
+		"requiredFor": ["^src/ui/", "\\.css$", "^index\\.html$"]
+	}
+}

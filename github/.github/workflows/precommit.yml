@@ -1,0 +1,50 @@
+# Pre-commit checks on every pull request, on demand, and for postcommit.yml (workflow_call). The PR's own code runs
+# here, so the token is read-only and the checkout keeps no credentials. What runs is the `precommit` section of
+# .github/pr-automation.json, as the PR has it: `node --check` on every module, the npm scripts it lists, and
+# tools/run-tests.mjs (every standalone suite in test/). The PR bot dispatches this on a PR it rebuilt, since its push
+# starts no pull_request run. The job's name, `precommit`, is a check the bot merges on (merge.requiredChecks): keep it.
+name: Precommit
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: precommit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  precommit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Read the config
+        id: config
+        run: node tools/pr-config.mjs outputs precommit
+      - name: Install dependencies
+        if: steps.config.outputs.npmCi == 'true'
+        run: npm ci
+      - name: Parse every module
+        if: steps.config.outputs.syntaxCheck == 'true'
+        run: git ls-files -z '*.js' '*.mjs' | xargs -0 -r -n1 node --check
+      - name: Run the npm scripts
+        run: |
+          mapfile -t scripts < <(node tools/pr-config.mjs get precommit.scripts)
+          for script in "${scripts[@]}"; do
+            echo "::group::npm run $script"
+            npm run "$script"
+            echo "::endgroup::"
+          done
+      - name: Unit tests
+        if: steps.config.outputs.runTests == 'true'
+        run: node tools/run-tests.mjs
